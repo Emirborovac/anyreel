@@ -1,0 +1,103 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Downloader</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'downloader/styles.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <video class="background-video" autoplay loop muted>
+        <source src="{% static 'downloader/bg.mp4' %}" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div class="overlay"></div>
+    <div class="container">
+        <div class="content">
+            <h1>ANYREEL DOWNLOADER</h1>
+            {% if error %}
+                <p class="error">{{ error }}</p>
+            {% endif %}
+            <form method="post" id="downloadForm">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit">Download</button>
+            </form>
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p id="downloadStatus" style="display: none;">Download finished!</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('downloadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            var progressContainer = document.getElementById('progressContainer');
+            var progressBar = document.getElementById('progressBar');
+            var downloadStatus = document.getElementById('downloadStatus');
+
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0';
+            downloadStatus.style.display = 'none';
+
+            var width = 0;
+            var interval = setInterval(function() {
+                if (width >= 100) {
+                    clearInterval(interval);
+                    progressContainer.style.display = 'none';
+                    downloadStatus.style.display = 'block';
+                    setTimeout(() => {
+                        downloadStatus.style.display = 'none';
+                    }, 4000);
+                } else {
+                    width++;
+                    progressBar.style.width = width + '%';
+                }
+            }, 100);
+
+            var formData = new FormData(this);
+            fetch('', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.blob().then(blob => ({
+                    filename: response.headers.get('Content-Disposition').split('filename=')[1].trim(),
+                    blob: blob
+                }));
+            })
+            .then(({ filename, blob }) => {
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename || 'video.mp4';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                // Clear the form input
+                document.getElementById('downloadForm').reset();
+            })
+            .catch(error => console.error('Download failed:', error))
+            .finally(() => {
+                clearInterval(interval);
+                progressBar.style.width = '100%';
+                progressContainer.style.display = 'none';
+                downloadStatus.style.display = 'block';
+                setTimeout(() => {
+                    downloadStatus.style.display = 'none';
+                }, 4000);
+            });
+        });
+    </script>
+</body>
+</html>
